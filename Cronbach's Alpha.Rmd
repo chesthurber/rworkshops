@@ -1,0 +1,121 @@
+---
+title: "Cronbach's Alpha Exercise"
+output:
+  slidy_presentation:
+    keep_md: yes
+---
+
+Carol requested that we figure out how to run a Cronbach's Alpha analysis. I found an exercise on the [R Bloggers](https://www.r-bloggers.com/five-ways-to-calculate-internal-consistency/) webiste that shows how to do this along with some other evaluations of internal consistency. So let's give it a shot!
+
+First step as always is to set your working directory/R Studio Project, whatever system you have now (hopefully) become confortable with to get started in R. 
+
+##More Data Import Methods!
+
+To start, we need to import the dataset and R Bloggers shows us another way of doing this: using R to download the dataset directly to your working directory and then opening it with read.table. I have to confess that I don't do this in my own work, but it's a fantastic practice, especially if you are downloading from a permanent repository service like Michigan's ICPSR, Harvard's IQSS, or even github. Some of these have their own packaged for even easier and more direct imports of their data. 
+
+```{r Download and Import Data}
+temp <- tempfile()
+download.file("http://personality-testing.info/_rawdata/BIG5.zip", temp, mode="wb")
+d <- read.table(unz(temp, "BIG5/data.csv"), header = TRUE, sep="\t")
+unlink(temp); rm(temp)
+```
+
+This is a little more complicated than it needed to be as it cleaned up some of the unnecessary "temp" items along the way.
+
+The dataset you can see is quite large! Try working with this in Excel! (not). The dataset is based on 19719 respondents to a Big Five personality test as used in psychometrics. Respondents were asked 50 questions on a 5 point Likert scale, 10 questions are associated with each of the Big Five personality traits.
+
+##Cleaning the Data
+For the purposes of this exercise, we are going to focus just on the 10 questions related to Introversion versus Extraversion (columns E1 through E10 in the dataset) and use only the first 500 observations.
+```{r Slim it down}
+d <- d[1:500, paste0("E", 1:10)]
+str(d)
+```
+
+
+Here are what those questions are (or rather, statements to which the respondent answered on the Likert Scale ranging from Strongly agree to Strongly Disagree);
+
+E1 I am the life of the party.
+E2 I don’t talk a lot.
+E3 I feel comfortable around people.
+E4 I keep in the background.
+E5 I start conversations.
+E6 I have little to say.
+E7 I talk to a lot of different people at parties.
+E8 I don’t like to draw attention to myself.
+E9 I don’t mind being the center of attention.
+E10 I am quiet around strangers.
+
+A quick problem is that the questions measure the underlying trait of Extroversion in different directions. Specifically, the even questions are associated with introversion while the odd questions are associated with extroversion. Here's some code to do just that:
+
+```{r Rescale}
+d[, paste0("E", c(2, 4, 6, 8, 10))] <- 6 - d[, paste0("E", c(2, 4, 6, 8, 10))]
+```
+
+Think for a minute about what this line of code is doing and how it's doing it in case you need to do something similar in the future.
+
+##Inter-Item Correlations
+
+A quick first step to understanding this data might be to look at the correlation matrix.
+
+```{r}
+#install.packages("corrr")
+library(corrr)
+library(dplyr)
+d %>% correlate()
+```
+
+Next, we might want to take a look at the average correlation in each column and the average of those averages (i.e. the average inter-item correlation:
+
+```{r Average Correlation}
+inter_item <- d %>% correlate() %>% select(-rowname) %>% colMeans(na.rm = TRUE)
+inter_item
+mean(inter_item)
+```
+
+The lesson I'm drawing from also provides code for how to plot a histogram of the inter-item correlations. It uses a graphics package that we haven't discussed yet, but I leave the code here anyway:
+
+```{r Inter-Item Histogram}
+library(ggplot2)
+
+data.frame(inter_item) %>% 
+  ggplot(aes(x = inter_item)) +
+    geom_histogram(bins = 10, alpha = .5) +
+    geom_vline(xintercept = mean(inter_item), color = "red") +
+    xlab("Mean inter-item correlation") +
+    theme_bw()
+```
+
+##Item-Total Correlation
+
+Next, we can calculate an average "score" for each respondent on the Extroversion measure, and then examine the correlation between each item and that score:
+
+```{r Item-Total Correlation}
+d$score <- rowMeans(d)
+item_total <- d %>% correlate() %>% focus(score)
+item_total
+mean(item_total$score)
+item_total %>% 
+  ggplot(aes(x = score)) +
+    geom_histogram(bins = 10, alpha = .5) +
+    geom_vline(xintercept = mean(item_total$score), color = "red") +
+    xlab("Mean item-total correlation") +
+    theme_bw()
+```
+
+##Cronbach's Alpha
+
+And now, what we all came for: Cronbach's Alpha. To do this, the lesson recommends the function "alpha" from the "psych" package. In the code below, notice that we first remove the score column we made earlier, then we use a special notation in calling the alpha function to show that we want the alpha function from the psych package as opposed to the one in the ggplot2 package (the ugliness of dealing with software developed by an open source community...but hey, it's free!)
+
+```{r}
+d$score <- NULL
+psych::alpha(d)
+```
+
+Here's another package that also produces a Cronbach's Alpha, but with far fewer ancillary statistics. I think I would stick with the original above. There are a number of other packages that seems to have a similar function.
+```{r}
+#install.packages("ltm")
+library(ltm)
+cronbach.alpha(d)
+```
+
+The R Bloggers lesson goes on to calculate some other measures of internal consistency, such as split-half reliability. But we'll end here today!
