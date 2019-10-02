@@ -1,0 +1,112 @@
+---
+title: "Fall 2018 R Workshops - Session 1"
+output: slidy_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+Welcome back everyone! This is our first R Workshop of the Fall 2018 semester. Our goals for today will be to:
+
+- make sure everyone is up and running using R and R Studio
+- to review working directories and packages
+- introduce and download materials related to Kosuke Imai's *QSS* book
+- play around with data from the race/resume experiment
+
+Download this R Markdown script at: http://www.chesthurber.com/r-workshops
+
+## That Pesky Working Directory
+
+The key commands:
+
+```{r Working Directory, echo = TRUE}
+getwd() #find out your current working directory
+#setwd("C:/Users/A1810667/OneDrive/POLS641_Class_2") #set working directory as another folder (don't use this one, you won't be able to access it!)
+#getwd() #what changed?
+```
+
+I usually do all working directory stuff in the GUI. Colin argues that this isn't always wise...
+
+## The Apple Store of R
+
+![](CRAN.png)
+
+```{r Install Swirl, echo=TRUE}
+#install.packages("swirl") # install the package, only have to do this once, can be done in GUI
+library(swirl) # load the package, do this in every R session! therefore, good to have in your script (not GUI)
+```
+
+## Make the Robot Talk to Me!
+```{r Run Swirl, echo=TRUE}
+#install_course_github("kosukeimai", "qss-swirl") # install the specific QSS swirl course
+swirl() #run the package
+bye() # end swirl at any point and return to normal R
+```
+
+## Loading Datasets
+
+I like working with .csv files. You can download them to R directly from the web, or load them from your working directory.
+
+```{r Read and Write .csv, echo=TRUE}
+resume<-read.csv("https://raw.githubusercontent.com/kosukeimai/qss/master/CAUSALITY/resume.csv")
+
+write.csv(resume, "resume.csv")
+
+Resume<-read.csv("resume.csv")
+```
+*But what did it do here that's kind of funny?*
+
+## Dealing with Infidels (i.e. Stata Users)
+
+It's just as easy as working with .csv files, you just need to load a package. You can use foreign or hazen.
+
+```{r Read and Write .dta, echo=TRUE}
+library(foreign)
+write.dta(resume, "resume.dta")
+RESUME<-read.dta("resume.dta")
+```
+
+*Watch out for missing data, though!*
+
+## Let's Play with the Resume Data
+
+```{r, Summary, echo=TRUE}
+summary(resume)
+```
+
+## Make a Table
+
+```{r Table, echo=TRUE}
+race.call.tab <- table(race = resume$race, call = resume$call)
+race.call.tab
+```
+
+```{r Sum, echo=TRUE}
+addmargins(race.call.tab)
+```
+
+##Calculate Callback Rates
+
+Overall Callback Rate
+```{r Total Callback, echo=TRUE}
+sum(race.call.tab[, 2]) / nrow(resume)
+```
+
+Callback Rate for Black Names
+```{r Black Callback, echo=TRUE}
+race.call.tab[1, 2] / sum(race.call.tab[1, ])
+```
+
+*Can you calculate the callback rate for White Names?*
+
+##Can I get a Chi-Squared?
+
+A $$\chi^2$$ Test is a statistical test for tabular data. It essentially compares the table we observed with on in which frequencies are evenly distributed by category.
+
+```{r Chi Sq, echo=TRUE}
+chisq.test(race.call.tab)
+```
+
