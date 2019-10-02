@@ -1,0 +1,102 @@
+---
+title: "R Workshop 3: Zelig"
+author: "Dr. Ches Thurber"
+date: "October 5, 2018"
+output: 
+  ioslides_presentation
+---
+
+## What's Zelig?
+
+- A Woody Allen movie from 1983
+- A package universe developed by Gary King at Harvard
+- Another attempt to make R more like Stata
+- Uniform implementation of regression models across model types
+- Integrates many of King's statistical innovations (of which there are many)
+- Implementation of "Clarify" i.e. post-estimation simulations
+- can be fickle and quirky: *Zelig does NOT like missing data!*
+
+##Election Data 
+Let's load the data about presidential election outcomes and economic growth and check it out.
+
+```{r Load Data, echo=T}
+PresVote<-read.csv("PresVote.csv")
+head(PresVote)
+```
+
+##Let's Make a Scatterplot
+```{r Scatterplot, eval=T, echo=F}
+plot(vote~rdi4, data=PresVote, pch=8, col="blue",
+  xlab = "% Change in Income",
+     ylab = "Incumbent Party's Vote %",
+     main = "Economic Growth and Presidential Elections")
+text(rdi4~vote, data=PresVote, labels=year, cex=.7, pos=1, offset=.5)
+```
+
+##Fitting a Linear Model in Base R
+```{r Linear Model, echo=T}
+Model1<-lm(vote~rdi4, data=PresVote)
+summary(Model1)
+```
+
+##Put the Line on Our Plot
+```{r abline Plot, eval=T, echo=F}
+plot(vote~rdi4, data=PresVote, pch=8, col="blue",
+  xlab = "% Change in Income",
+     ylab = "Incumbent Party's Vote %",
+     main = "Economic Growth and Presidential Elections")
+text(vote~rdi4, data=PresVote, labels=year, cex=.7, pos=1, offset=.5)
+abline(Model1, col="red")
+```
+
+##Running OLS in Zelig
+```{r Zelig Model, echo=T, message=FALSE, warning=FALSE}
+#install.packages("zeligverse")
+library(zeligverse)
+Z1<-zelig(vote~rdi4, model="ls", data=PresVote)
+summary(Z1)
+```
+
+##Simulate Expected Values
+
+```{r}
+logrowth <- setx(Z1, rdi4 = 2)
+higrowth <- setx(Z1, rdi4 = 4)
+Sim1 <- sim(Z1, x = logrowth, x1 = higrowth)
+summary(Sim1)
+```
+
+##Plot them
+```{r}
+par(mar = rep(2, 4))
+plot(Sim1)
+```
+
+##Looking Under the Hood a Bit...
+```{r}
+SimOut<-zelig_qi_to_df(Sim1)
+SlimOut<-qi_slimmer(SimOut)
+```
+
+## Simulate Continuously
+```{r}
+congrowth <- setx(Z1, rdi4 = seq(-2,4,by= .1))
+Sim2 <- sim(Z1, x = congrowth)
+plot(Sim2)
+```
+
+##Make that in GGPLOT
+```{r message=FALSE, warning=FALSE, echo=F}
+Sim2.Out<-qi_slimmer(zelig_qi_to_df(Sim2))
+Sim2.Out$rdi4<-Sim2.Out$temp_fitted.u...
+#install.packages("ggplot2")
+library(ggplot2)
+ggplot(Sim2.Out, aes(rdi4, qi_ci_median)) +
+    geom_ribbon(aes(ymin = qi_ci_min, ymax = qi_ci_max), 
+                alpha = 0.3) +
+    geom_line() + 
+    ylab('Expected Incumbent Vote Share') +
+  ggtitle("Effect of Income Growth on Presidential Elections")+
+    theme_bw()
+```
+
